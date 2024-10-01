@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat ZD</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f0f0; /* Fondo gris claro */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #333; /* Texto gris oscuro */
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        #logo {
+            width: 150px; /* Ajusta el tamaño del logo según sea necesario */
+            height: auto;
+            margin-bottom: 20px;
+        }
+
+        #userForm {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            width: 350px;
+            text-align: center;
+        }
+
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc; /* Borde gris claro */
+            border-radius: 5px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #999; /* Borde gris medio al enfocar */
+            outline: none;
+        }
+
+        button {
+            background-color: #6c757d; /* Fondo gris para el botón */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s, transform 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #5a6268; /* Gris más oscuro al pasar el mouse */
+            transform: translateY(-2px);
+        }
+
+        #chat {
+            display: none;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 350px;
+            text-align: center;
+        }
+
+        #messages {
+            list-style-type: none;
+            padding: 0;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #messages li {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            background-color: #e9ecef; /* Mensajes en gris claro */
+            color: #333;
+            transition: background-color 0.3s;
+        }
+
+        #messages li:hover {
+            background-color: #d3d3d3; /* Mensajes más oscuros al pasar el mouse */
+        }
+
+        #messageInput {
+            width: calc(100% - 70px);
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc; /* Borde gris claro */
+            border-radius: 5px;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            border-color: #999; /* Borde gris medio al enfocar */
+            outline: none;
+        }
+
+        #sendButton {
+            background-color: #28a745; /* Fondo verde para el botón de enviar */
+            border: none;
+            border-radius: 5px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s, transform 0.2s;
+            width: 60px;
+        }
+
+        #sendButton:hover {
+            background-color: #218838; /* Verde más oscuro al pasar el mouse */
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <img id="logo" src="/logo.png" alt="Logo de la Empresa"> <!-- Asegúrate de que el logo esté en la carpeta pública -->
+    <h1>Chat ZD</h1>
+    <form id="userForm">
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" required>
+        <label for="ci">C.I:</label>
+        <input type="text" id="ci" required>
+        <button type="submit">Entrar al Chat</button>
+    </form>
+
+    <div id="chat">
+        <ul id="messages"></ul>
+        <input id="messageInput" autocomplete="off" placeholder="Escribe tu mensaje..." />
+        <button id="sendButton">Enviar</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const userForm = document.getElementById('userForm');
+        const chat = document.getElementById('chat');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        userForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('nombre').value;
+            const ci = document.getElementById('ci').value;
+            socket.emit('user data', { nombre, ci });
+            userForm.style.display = 'none';
+            chat.style.display = 'block';
+        });
+
+        sendButton.addEventListener('click', () => {
+            const msg = messageInput.value;
+            socket.emit('chat message', msg);
+            messageInput.value = '';
+        });
+
+        socket.on('chat message', (msg) => {
+            const item = document.createElement('li');
+            item.textContent = msg;
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight; // Desplazar automáticamente hacia abajo
+        });
+    </script>
+</body>
+</html>

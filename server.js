@@ -1,4 +1,4 @@
-// Importar las dependencias necesarias 
+// Importar las dependencias necesarias  
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -105,5 +105,5 @@ const setWebhook = async () => {
     }
 };
 
-// Llama a la función para establecer el Webhook
+// Llama a la función para establecer el Webhooka
 setWebhook().catch(console.error);

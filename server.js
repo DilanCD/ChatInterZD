@@ -22,6 +22,7 @@ const RAILWAY_URL = process.env.RAILWAY_URL || 'http://localhost:3000'; // Usa l
 
 // Crear un objeto para almacenar la información de los clientes
 const clients = {};
+const clientTelegramMap = {}; // Mapeo entre usuarios y mensajes en Telegram
 
 // Ruta para almacenar los historiales de chat
 const historyFilePath = path.join(__dirname, 'chatHistory.json');
@@ -41,7 +42,7 @@ const saveChatHistory = (history) => {
 };
 
 // Función para enviar mensajes a Telegram
-const sendToTelegram = (message) => {
+const sendToTelegram = (message, clientId) => {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     fetch(url, {
         method: 'POST',
@@ -49,35 +50,50 @@ const sendToTelegram = (message) => {
         body: JSON.stringify({
             chat_id: TELEGRAM_CHAT_ID,
             text: message,
+            reply_markup: {
+                force_reply: true,
+                selective: true,
+            }
         }),
     })
     .then(response => response.json())
     .then(data => {
-        if (!data.ok) {
-            console.error("Error al enviar mensaje:", data);
+        if (data.ok) {
+            // Asociar el mensaje enviado a Telegram con el cliente que lo envió
+            clientTelegramMap[data.result.message_id] = clientId; // Guardar la relación entre el mensaje de Telegram y el cliente
+        } else {
+            console.error("Error al enviar mensaje a Telegram:", data);
         }
     })
-    .catch(error => console.error("Error en la petición:", error));
+    .catch(error => console.error("Error en la petición a Telegram:", error));
 };
 
 // Endpoint para recibir mensajes de Telegram
 app.post('/webhook', (req, res) => {
     const message = req.body.message;
-    if (message && message.text) {
-        const reply = `Internet ZD: ${message.text}`;
 
-        // Lógica para determinar el destinatario del mensaje de Telegram
-        const destinatarioCi = "12345678"; // CI del destinatario del mensaje de Telegram
-        const destinatarioSocketId = Object.keys(clients).find(socketId => clients[socketId].ci === destinatarioCi);
+    if (message && message.text && message.reply_to_message) {
+        // Si el mensaje es una respuesta en Telegram
+        const repliedMessageId = message.reply_to_message.message_id;
 
-        if (destinatarioSocketId) {
-            // Enviar el mensaje solo al destinatario
-            io.to(destinatarioSocketId).emit('chat message', reply);
+        // Verificar si estamos respondiendo a un mensaje de un cliente
+        const clientId = clientTelegramMap[repliedMessageId];
 
-            // Guardar el mensaje en el historial solo para el destinatario
-            saveMessageToHistory(destinatarioSocketId, reply);
+        if (clientId) {
+            const reply = `Soporte: ${message.text}`;
+
+            // Enviar el mensaje solo al cliente que envió el mensaje original
+            const destinatarioSocketId = Object.keys(clients).find(socketId => clients[socketId].ci === clientId);
+
+            if (destinatarioSocketId) {
+                io.to(destinatarioSocketId).emit('chat message', reply);
+
+                // Guardar el mensaje en el historial del cliente
+                saveMessageToHistory(destinatarioSocketId, reply);
+            }
         }
     }
+
     res.sendStatus(200);
 });
 
@@ -109,7 +125,7 @@ io.on('connection', (socket) => {
         console.log(message);
 
         // Enviar el mensaje a Telegram
-        sendToTelegram(message);
+        sendToTelegram(message, user.ci);  // Asociar el mensaje con el CI del usuario
 
         // Guardar el mensaje enviado en el historial
         saveMessageToHistory(socket.id, message);
@@ -158,4 +174,3 @@ const setWebhook = async () => {
 
 // Llama a la función para establecer el Webhook
 setWebhook().catch(console.error);
-

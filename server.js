@@ -3,7 +3,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const bodyParser = require('body-parser');
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args)); // Para soportar ES Modules
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const fs = require('fs');
 const path = require('path');
 
@@ -60,7 +60,7 @@ const sendToTelegram = (message, clientId) => {
     .then(data => {
         if (data.ok) {
             // Asociar el mensaje enviado a Telegram con el cliente que lo envió
-            clientTelegramMap[data.result.message_id] = clientId; // Guardar la relación entre el mensaje de Telegram y el cliente
+            clientTelegramMap[data.result.message_id] = clientId;
         } else {
             console.error("Error al enviar mensaje a Telegram:", data);
         }
@@ -80,7 +80,7 @@ app.post('/webhook', (req, res) => {
         const clientId = clientTelegramMap[repliedMessageId];
 
         if (clientId) {
-            const reply = `Internet ZD: ${message.text}`;
+            const reply = `Soporte: ${message.text}`;
 
             // Enviar el mensaje solo al cliente que envió el mensaje original
             const destinatarioSocketId = Object.keys(clients).find(socketId => clients[socketId].ci === clientId);
@@ -89,7 +89,7 @@ app.post('/webhook', (req, res) => {
                 io.to(destinatarioSocketId).emit('chat message', reply);
 
                 // Guardar el mensaje en el historial del cliente
-                saveMessageToHistory(clientId, reply); // Cambiamos a guardar el historial por CI
+                saveMessageToHistory(clientId, reply);
             }
         }
     }
@@ -114,7 +114,10 @@ io.on('connection', (socket) => {
 
         // Enviar el historial al usuario cuando se conecta, usando su CI
         if (chatHistory[data.ci]) {
+            console.log(`Enviando historial de mensajes para el CI: ${data.ci}`);
             socket.emit('load history', chatHistory[data.ci]);
+        } else {
+            console.log(`No se encontró historial para el CI: ${data.ci}`);
         }
     });
 
@@ -125,12 +128,12 @@ io.on('connection', (socket) => {
         console.log(message);
 
         // Enviar el mensaje a Telegram
-        sendToTelegram(message, user.ci);  // Asociar el mensaje con el CI del usuario
+        sendToTelegram(message, user.ci);
 
         // Guardar el mensaje enviado en el historial
-        saveMessageToHistory(user.ci, message); // Cambiamos a guardar el historial por CI
+        saveMessageToHistory(user.ci, message);
 
-        // Enviar el mensaje a todos los conectados (opcional, para pruebas)
+        // (Opcional) Si quieres seguir enviando a todos para pruebas o desarrollo
         io.emit('chat message', message);
     });
 

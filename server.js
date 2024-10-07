@@ -80,7 +80,7 @@ app.post('/webhook', (req, res) => {
         const clientId = clientTelegramMap[repliedMessageId];
 
         if (clientId) {
-            const reply = `Soporte: ${message.text}`;
+            const reply = `Internet ZD: ${message.text}`;
 
             // Enviar el mensaje solo al cliente que envió el mensaje original
             const destinatarioSocketId = Object.keys(clients).find(socketId => clients[socketId].ci === clientId);
@@ -89,7 +89,7 @@ app.post('/webhook', (req, res) => {
                 io.to(destinatarioSocketId).emit('chat message', reply);
 
                 // Guardar el mensaje en el historial del cliente
-                saveMessageToHistory(destinatarioSocketId, reply);
+                saveMessageToHistory(clientId, reply); // Cambiamos a guardar el historial por CI
             }
         }
     }
@@ -112,9 +112,9 @@ io.on('connection', (socket) => {
         clients[socket.id] = data;
         console.log(`Usuario conectado: ${data.nombre}, CI: ${data.ci}`);
 
-        // Enviar el historial al usuario cuando se conecta
-        if (chatHistory[socket.id]) {
-            socket.emit('load history', chatHistory[socket.id]);
+        // Enviar el historial al usuario cuando se conecta, usando su CI
+        if (chatHistory[data.ci]) {
+            socket.emit('load history', chatHistory[data.ci]);
         }
     });
 
@@ -128,9 +128,9 @@ io.on('connection', (socket) => {
         sendToTelegram(message, user.ci);  // Asociar el mensaje con el CI del usuario
 
         // Guardar el mensaje enviado en el historial
-        saveMessageToHistory(socket.id, message);
+        saveMessageToHistory(user.ci, message); // Cambiamos a guardar el historial por CI
 
-        // Enviar el mensaje a todos los conectados
+        // Enviar el mensaje a todos los conectados (opcional, para pruebas)
         io.emit('chat message', message);
     });
 
@@ -144,13 +144,13 @@ io.on('connection', (socket) => {
     });
 });
 
-// Función para guardar un mensaje en el historial
-const saveMessageToHistory = (socketId, message) => {
+// Función para guardar un mensaje en el historial (ahora usando CI en vez de socketId)
+const saveMessageToHistory = (clientId, message) => {
     let chatHistory = readChatHistory();
-    if (!chatHistory[socketId]) {
-        chatHistory[socketId] = [];
+    if (!chatHistory[clientId]) {
+        chatHistory[clientId] = [];
     }
-    chatHistory[socketId].push(message);
+    chatHistory[clientId].push(message);
     saveChatHistory(chatHistory); // Guardar el historial actualizado
 };
 

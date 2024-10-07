@@ -4,6 +4,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const bodyParser = require('body-parser');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args)); // Para soportar ES Modules
+const fs = require('fs');
+const path = require('path');
 
 // Crear la aplicación Express
 const app = express();
@@ -20,6 +22,23 @@ const RAILWAY_URL = process.env.RAILWAY_URL || 'http://localhost:3000'; // Usa l
 
 // Crear un objeto para almacenar la información de los clientes
 const clients = {};
+
+// Ruta para almacenar los historiales de chat
+const historyFilePath = path.join(__dirname, 'chatHistory.json');
+
+// Función para leer el historial desde el archivo JSON
+const readChatHistory = () => {
+    if (fs.existsSync(historyFilePath)) {
+        const data = fs.readFileSync(historyFilePath, 'utf8');
+        return JSON.parse(data);
+    }
+    return {};
+};
+
+// Función para guardar el historial en el archivo JSON
+const saveChatHistory = (history) => {
+    fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2));
+};
 
 // Función para enviar mensajes a Telegram
 const sendToTelegram = (message) => {
@@ -46,7 +65,18 @@ app.post('/webhook', (req, res) => {
     const message = req.body.message;
     if (message && message.text) {
         const reply = `Internet ZD: ${message.text}`;
-        io.emit('chat message', reply); // Enviar el mensaje al chat del portal
+
+        // Lógica para determinar el destinatario del mensaje de Telegram
+        const destinatarioCi = "12345678"; // CI del destinatario del mensaje de Telegram
+        const destinatarioSocketId = Object.keys(clients).find(socketId => clients[socketId].ci === destinatarioCi);
+
+        if (destinatarioSocketId) {
+            // Enviar el mensaje solo al destinatario
+            io.to(destinatarioSocketId).emit('chat message', reply);
+
+            // Guardar el mensaje en el historial solo para el destinatario
+            saveMessageToHistory(destinatarioSocketId, reply);
+        }
     }
     res.sendStatus(200);
 });
@@ -58,10 +88,18 @@ app.use(express.static(__dirname + '/public'));
 io.on('connection', (socket) => {
     console.log('Un usuario se ha conectado');
 
+    // Leer el historial de chat desde el archivo
+    let chatHistory = readChatHistory();
+
     // Almacenar el nombre y CI del usuario cuando se envía la información
     socket.on('user data', (data) => {
         clients[socket.id] = data;
         console.log(`Usuario conectado: ${data.nombre}, CI: ${data.ci}`);
+
+        // Enviar el historial al usuario cuando se conecta
+        if (chatHistory[socket.id]) {
+            socket.emit('load history', chatHistory[socket.id]);
+        }
     });
 
     // Manejar los mensajes del chat
@@ -72,6 +110,9 @@ io.on('connection', (socket) => {
 
         // Enviar el mensaje a Telegram
         sendToTelegram(message);
+
+        // Guardar el mensaje enviado en el historial
+        saveMessageToHistory(socket.id, message);
 
         // Enviar el mensaje a todos los conectados
         io.emit('chat message', message);
@@ -86,6 +127,16 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+// Función para guardar un mensaje en el historial
+const saveMessageToHistory = (socketId, message) => {
+    let chatHistory = readChatHistory();
+    if (!chatHistory[socketId]) {
+        chatHistory[socketId] = [];
+    }
+    chatHistory[socketId].push(message);
+    saveChatHistory(chatHistory); // Guardar el historial actualizado
+};
 
 // Iniciar el servidor en el puerto dinámico
 const PORT = process.env.PORT || 3000;
@@ -105,5 +156,6 @@ const setWebhook = async () => {
     }
 };
 
-// Llama a la función para establecer el Webhooka
+// Llama a la función para establecer el Webhook
 setWebhook().catch(console.error);
+
